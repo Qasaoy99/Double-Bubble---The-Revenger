@@ -23,9 +23,17 @@ public class PlayerController : MonoBehaviour
     public float fireRate = 0.2f;
     private float nextFireTime = 0f;
 
+    [Header("إعدادات الأنيميشن (جديد)")]
+    private Animator anim;
+    private SpriteRenderer spriteRenderer;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        // تعريف مكونات الأنيميشن والشكل
+        anim = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     void Update()
@@ -65,6 +73,28 @@ public class PlayerController : MonoBehaviour
         else if (Input.GetKey(KeyCode.A)) moveInput = -1f;
 
         rb.linearVelocity = new Vector2(moveInput * moveSpeed, rb.linearVelocity.y);
+
+        // ==========================================
+        // إضافة الأنيميشن والالتفات هنا
+        // ==========================================
+        if (anim != null)
+        {
+            // تشغيل وإيقاف حركة الركض بناءً على قيمة الإدخال
+            anim.SetFloat("Speed", Mathf.Abs(moveInput));
+        }
+
+        if (spriteRenderer != null)
+        {
+            // قلب الشخصية لتنظر لليمين أو اليسار
+            if (moveInput > 0)
+            {
+                spriteRenderer.flipX = false; // يمين
+            }
+            else if (moveInput < 0)
+            {
+                spriteRenderer.flipX = true; // يسار
+            }
+        }
     }
 
     void HandleJumping()
