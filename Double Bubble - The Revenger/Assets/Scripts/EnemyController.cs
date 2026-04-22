@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 // سكربت عدو شامل: دورية + مطاردة + هجوم + نظام صحة.
@@ -21,6 +22,16 @@ public class EnemyController : MonoBehaviour
 
     [Header("الصحة")]
     public int maxHealth = 3;
+
+    [Header("الـ Hitbox (child GameObject يتفعل أثناء frames الضربة)")]
+    [SerializeField] private EnemyMeleeHitbox attackHitbox;
+
+    // events عشان شريط الصحة يسمع بدون polling — أي UI ممكن يشترك بدون تغيير هذا السكربت
+    public event Action<int, int> OnHealthChanged;
+    public event Action OnDied;
+
+    public int CurrentHealth => currentHealth;
+    public int MaxHealth => maxHealth;
 
     // الحالة الداخلية
     private int currentHealth;
@@ -46,6 +57,7 @@ public class EnemyController : MonoBehaviour
         sr = GetComponent<SpriteRenderer>();
 
         currentHealth = maxHealth;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth); // نخبر UI بالقيمة المبدئية
         // نبدأ بالتوجه للنقطة A — إذا ما في نقاط، العدو يوقف فقط (يُعالج في Patrol)
         currentTarget = patrolPointA;
     }
@@ -144,12 +156,25 @@ public class EnemyController : MonoBehaviour
             sr.flipX = false;
     }
 
+    // Animation Event proxies — لازم تكون على GameObject اللي عليه الأنميتور (القوبلن root).
+    // نحوّل النداء للـ child hitbox لأن Animation Events ما تشوف الأبناء.
+    public void EnableAttackHitbox()
+    {
+        if (attackHitbox != null) attackHitbox.EnableHitbox();
+    }
+
+    public void DisableAttackHitbox()
+    {
+        if (attackHitbox != null) attackHitbox.DisableHitbox();
+    }
+
     // يستدعى من سكربت اللاعب لما الضربة تلمس العدو
     public void TakeDamage(int damage)
     {
         if (isDead) return; // ما نسمح بضرر بعد الموت
 
         currentHealth -= damage;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth); // يحدّث شريط الصحة
         anim.SetTrigger(TakeHitHash);
 
         if (currentHealth <= 0)
@@ -168,6 +193,8 @@ public class EnemyController : MonoBehaviour
         // نعطّل الكولايدر علمود اللاعب يقدر يمر فوق الجثة بدون ما يصدم فيها
         Collider2D col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
+
+        OnDied?.Invoke(); // يخفي شريط الصحة
     }
 
     // رسم دوائر المدى في Scene view — تساعد في ضبط detectionRange و attackRange بصرياً

@@ -15,6 +15,12 @@ public class HeroKnightController : MonoBehaviour
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
 
+    [Header("إعدادات الهجوم")]
+    [SerializeField] Transform attackPoint;                         // empty child قدام اللاعب
+    [SerializeField] Vector2 attackHitboxSize = new Vector2(1.2f, 1f);
+    [SerializeField] int attackDamage = 10;
+    [SerializeField] LayerMask enemyLayers;                         // طبقة Enemy من Layer dropdown
+
     private Animator m_animator;
     private Rigidbody2D m_body2d;
     private bool m_grounded = false;
@@ -102,6 +108,7 @@ public class HeroKnightController : MonoBehaviour
                 m_currentAttack = 1;
 
             m_animator.SetTrigger("Attack" + m_currentAttack);
+            PerformAttackHit(); // damage check يترافق مع تشغيل الأنميشن
             m_timeSinceAttack = 0.0f;
         }
         // Block (Right Click) — أثناء الضغط يصير IdleBlock true
@@ -146,13 +153,52 @@ public class HeroKnightController : MonoBehaviour
         }
     }
 
-    // يرسم دائرة حمراء مكان groundCheck في الـ Scene view — تساعد في ضبط الموقع والحجم
+    // يعمل OverlapBox قدام اللاعب ويودّي ضرر لأي EnemyController أو Health يصاب بالـ hitbox.
+    // public عشان تقدر تستدعيها من Animation Event لو بغيت timing أدق مع frames الضربة.
+    public void PerformAttackHit()
+    {
+        Vector2 origin = GetAttackCenter();
+        Collider2D[] hits = Physics2D.OverlapBoxAll(origin, attackHitboxSize, 0f, enemyLayers);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            // نفحص EnemyController أولاً لأن هذا نظام الصحة الموجود للأعداء الحاليين
+            var enemy = hits[i].GetComponentInParent<EnemyController>();
+            if (enemy != null) { enemy.TakeDamage(attackDamage); continue; }
+
+            // fallback لأي كيان مستقبلي يستخدم Health component
+            var hp = hits[i].GetComponentInParent<Health>();
+            if (hp != null) hp.TakeDamage(attackDamage);
+        }
+    }
+
+    // نعكس offset الـ attackPoint لما الـ sprite يكون flipX عشان الـ hitbox يضل قدام الوجه
+    private Vector2 GetAttackCenter()
+    {
+        if (!attackPoint) return transform.position;
+
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null && sr.flipX)
+        {
+            Vector3 local = attackPoint.localPosition;
+            local.x = -local.x;
+            return transform.TransformPoint(local);
+        }
+        return attackPoint.position;
+    }
+
+    // يرسم دائرة حمراء مكان groundCheck و مربع للـ attack hitbox في الـ Scene view
     private void OnDrawGizmosSelected()
     {
         if (groundCheck != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        }
+
+        if (attackPoint != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireCube(attackPoint.position, attackHitboxSize);
         }
     }
 }
